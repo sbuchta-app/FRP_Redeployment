@@ -1673,7 +1673,6 @@ with _tc2:
     )
 
     st.markdown("---")
-    st.markdown("---")
     # Bank-level capacity indicator placeholder (filled later after simulation)
     st.markdown("**Capacity indicator (eligible donor RWAs)**")
     bank_capacity_placeholder = st.container()
