@@ -1581,7 +1581,7 @@ with _tc1:
     st.caption("Select one or more banks:")
 
     # Defaults: prefer LBBW and Deutsche Bank if present; otherwise fall back to first bank
-    preferred_defaults = [b for b in ["LBBW", "Deutsche Bank"] if b in bank_list]
+    preferred_defaults = [b for b in ["LBBW", "NordLB"] if b in bank_list]
     if not preferred_defaults and bank_list:
         preferred_defaults = [bank_list[0]]
 
@@ -1672,6 +1672,7 @@ with _tc2:
         key="upfront_fee_bps_slider",
     )
 
+    st.markdown("---")
     st.markdown("---")
     # Bank-level capacity indicator placeholder (filled later after simulation)
     st.markdown("**Capacity indicator (eligible donor RWAs)**")
