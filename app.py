@@ -130,6 +130,16 @@ DONOR_RISK_WEIGHT: Dict[str, float] = {
     'B1_CONSUMER_FIN_CORE': 0.750,
 }
 
+# Donor net spreads (bps) used to compute lost income on allocated donor exposure (partner slice)
+DONOR_NET_SPREAD_BPS: Dict[str, float] = {
+    'B1_SME_CORE': 225.0,
+    'B1_MIDCORP_CORE': 180.0,
+    'B1_TRADE_FIN_CORE': 120.0,
+    'B1_CRE_CORE': 170.0,
+    'B1_CONSUMER_FIN_CORE': 300.0,
+}
+
+
 RECEIVER_RISK_WEIGHT: Dict[str, float] = {
     'B2_SME_RISK_UP': 0.600,
     'B2_MIDCORP_RISK_UP': 0.550,
@@ -822,6 +832,9 @@ def compute_roe_delta_transitions_greedy(
     exposure_used_yr = []
     assets_redeploy_used_yr = []
     status_list = []
+    lost_donor_income_yr = []
+    structural_income_yr = []
+    redeploy_income_yr = []
     rwa_target_base_yr_list = []
     rwa_target_scaled_yr_list = []
     rwa_target_scale_list = []
@@ -881,6 +894,9 @@ def compute_roe_delta_transitions_greedy(
             exposure_used_yr.append(np.nan)
             assets_redeploy_used_yr.append(np.nan)
             status_list.append("MISSING_TOTAL_ASSETS")
+            lost_donor_income_yr.append(np.nan)
+            structural_income_yr.append(np.nan)
+            redeploy_income_yr.append(np.nan)
             continue
 
         donor_split = None
@@ -942,18 +958,35 @@ def compute_roe_delta_transitions_greedy(
                 _rw_den += _expo
         avg_donor_rw = (_rw_num / _rw_den) if _rw_den > 0 else 0.0
 
+        # Exposure-weighted average donor spread (bps) across available donor buckets (for estimating lost income)
+        _spr_num = 0.0
+        _spr_den = 0.0
+        for _d, _expo in donor_expo.items():
+            _spr_bps = float(DONOR_NET_SPREAD_BPS.get(_d, 0.0))
+            if _spr_bps > 0 and _expo > 0:
+                _spr_num += _expo * _spr_bps
+                _spr_den += _expo
+        avg_donor_spread_bps = (_spr_num / _spr_den) if _spr_den > 0 else 0.0
+
         expo_needed_cet1_est = 0.0
         if avg_donor_rw > 0 and partner_share_dec > 0:
             expo_needed_cet1_est = float(rwa_target_cet1_yr) / (avg_donor_rw * partner_share_dec)
 
         structural_income_cet1_est = expo_needed_cet1_est * struct_rate_after_tax
 
-        # Reduce the redeployment profit target by the estimated structural income from the CET1 step.
-        # (This avoids systematically overshooting the ROE target.)
-        profit_target_redeploy_yr = max(0.0, float(profit_target_redeploy_yr) - float(structural_income_cet1_est))
+        # Estimate donor income lost on the CET1 step (partner slice only), so the ROE solve doesn't overstate uplift.
+        donor_loss_cet1_est = 0.0
+        if partner_share_dec > 0 and avg_donor_spread_bps > 0 and expo_needed_cet1_est > 0:
+            donor_loss_cet1_est = expo_needed_cet1_est * partner_share_dec * (avg_donor_spread_bps / 10000.0) * (1.0 - tx_i)
 
+        # Adjust the redeployment profit target by the *net* CET1-step contribution:
+        #   + structural income (adds to profit)
+        #   - donor loss (reduces profit)
+        net_cet1_step_contrib_est = float(structural_income_cet1_est) - float(donor_loss_cet1_est)
 
-
+        # Reduce the redeployment profit target by the estimated net contribution from the CET1 step.
+        # (Avoids systematically overshooting the ROE target.)
+        profit_target_redeploy_yr = max(0.0, float(profit_target_redeploy_yr) - float(net_cet1_step_contrib_est))
         # ------------------------------
         # Step 1 + Step 2: solve ROE target on TOTAL uplift (incl structural income)
         # ------------------------------
@@ -1009,7 +1042,19 @@ def compute_roe_delta_transitions_greedy(
             # Structural partnership income applies to TOTAL donor exposure used (REDEPLOY + CET1)
             _struct_income_total = float(_expo_used_total) * float(struct_rate_after_tax)
 
-            _profit_total = float(_profit_redeploy) + float(_struct_income_total)
+            # Donor income lost applies to TOTAL allocated exposure (REDEPLOY + CET1), partner slice only.
+            _donor_loss_total = 0.0
+            _used_by_donor_total = {}
+            for _a in _alloc_redeploy.get("allocations", []):
+                _used_by_donor_total[_a.donor] = _used_by_donor_total.get(_a.donor, 0.0) + float(_a.exposure_used_eur_bn)
+            for _a in _alloc_cet1.get("allocations", []):
+                _used_by_donor_total[_a.donor] = _used_by_donor_total.get(_a.donor, 0.0) + float(_a.exposure_used_eur_bn)
+            for _d_k, _expo_used in _used_by_donor_total.items():
+                _spr_bps = float(DONOR_NET_SPREAD_BPS.get(_d_k, 0.0))
+                if _spr_bps > 0 and _expo_used > 0 and partner_share_dec > 0:
+                    _donor_loss_total += float(_expo_used) * float(partner_share_dec) * (_spr_bps / 10000.0) * (1.0 - tx_i)
+
+            _profit_total = float(_profit_redeploy) + float(_struct_income_total) - float(_donor_loss_total)
 
             if np.isfinite(cet1_cap_bn) and cet1_cap_bn > 0:
                 _roe_achieved_bp = (_profit_total / cet1_cap_bn) * 10000.0
@@ -1030,6 +1075,7 @@ def compute_roe_delta_transitions_greedy(
                 "achieved_total": _achieved_total,
                 "expo_used_total": _expo_used_total,
                 "struct_income_total": _struct_income_total,
+                "donor_loss_total": _donor_loss_total,
                 "profit_total": _profit_total,
                 "roe_achieved_bp": _roe_achieved_bp,
             }
@@ -1212,9 +1258,25 @@ def compute_roe_delta_transitions_greedy(
 
                 # Add structural partnership income on the total donor exposure used (REDEPLOY + CET1)
         structural_income_total = float(expo_used_total) * float(struct_rate_after_tax)
-        profit_total = float(profit) + float(structural_income_total)
+
+        # Donor income lost on TOTAL allocated exposure (REDEPLOY + CET1), partner slice only.
+        donor_loss_total = 0.0
+        _used_by_donor_total = {}
+        for a in alloc_redeploy["allocations"]:
+            _used_by_donor_total[a.donor] = _used_by_donor_total.get(a.donor, 0.0) + float(a.exposure_used_eur_bn)
+        for a in alloc_cet1["allocations"]:
+            _used_by_donor_total[a.donor] = _used_by_donor_total.get(a.donor, 0.0) + float(a.exposure_used_eur_bn)
+        for _d_k, _expo_used in _used_by_donor_total.items():
+            _spr_bps = float(DONOR_NET_SPREAD_BPS.get(_d_k, 0.0))
+            if _spr_bps > 0 and _expo_used > 0 and partner_share_dec > 0:
+                donor_loss_total += float(_expo_used) * float(partner_share_dec) * (_spr_bps / 10000.0) * (1.0 - tx_i)
+
+        profit_total = float(profit) + float(structural_income_total) - float(donor_loss_total)
 
         addl_profit_yr.append(profit_total)
+        lost_donor_income_yr.append(donor_loss_total)
+        structural_income_yr.append(structural_income_total)
+        redeploy_income_yr.append(float(profit))
 
         rwa_red_yr_achieved.append(achieved_total)            # total capacity-consuming RWA reduction achieved
         exposure_used_yr.append(expo_used_total)              # total donor exposure used (Step1 + Step2)
@@ -1227,6 +1289,9 @@ def compute_roe_delta_transitions_greedy(
     df["RWA_target_scale"] = rwa_target_scale_list
     df["Assets_redeploy_used_Yr"] = assets_redeploy_used_yr  # receiver-side assets redeployed (implied by receiver risk weights)
     df["Addl_profit_Yr"] = addl_profit_yr
+    df["Redeploy_income_Yr"] = redeploy_income_yr
+    df["Structural_income_Yr"] = structural_income_yr
+    df["Lost_donor_income_Yr"] = lost_donor_income_yr
     df["Transition_status"] = status_list
 
     cap = df["CET1_Capital_EUR_bn"].clip(lower=1e-6)
@@ -1241,6 +1306,9 @@ def compute_roe_delta_transitions_greedy(
         "RWA_target_scaled_Yr",
         "RWA_target_scale",
         "Assets_redeploy_used_Yr",
+        "Redeploy_income_Yr",
+        "Structural_income_Yr",
+        "Lost_donor_income_Yr",
         "ROE_delta_bp",
         "gross_eff_lever",
         "Transition_status",
