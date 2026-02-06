@@ -1576,7 +1576,7 @@ with _tc1:
         max_value=600,
         value=100,
         step=1,
-        help="Target annual ROE uplift in basis points (bp). The model first allocates donor capacity to meet this ROE target (via profit-generating redeployment) and then allocates additional capacity to meet the CET1-uplift target.",
+        help="Target annual ROE uplift in basis points (bp). The model first allocates donor capacity to meet this ROE target (via profit-generating redeployment) and then allocates additional capacity to meet the CET1-uplift target. Caution: The fee-income from the assets/ RWAs left \"free\" to meet the CET1-uplift, represent an implicit floor for ROE-uplift.",
         key="roe_target_slider",
     )
 
@@ -2285,10 +2285,10 @@ with left_col:
                     return 0.0
                 return float(v) if np.isfinite(v) else 0.0
             cap_map = {str(k).strip(): v for k, v in (_compute_max_reg_divergence_map_endstate() or {}).items()}
-            banks_in_df = df["Bank"].astype(str).dropna().unique().tolist()
 
             fig = go.Figure()
-            for bank in banks_in_df:
+            # Keep legend order consistent with other charts (same as bank multiselect order)
+            for bank in BANK_ORDER:
                 d = df[df["Bank"].astype(str).str.strip() == str(bank).strip()]
                 if d.empty:
                     continue
