@@ -1524,7 +1524,7 @@ import itertools
 # Implementation note: CSS targeting Streamlit's generated DOM can be brittle across versions.
 # We therefore insert two narrow "separator" columns between the three control columns.
 
-_SEPARATOR_STYLE = "border-left: 1px solid rgba(49, 51, 63, 0.20); height: 950px; margin: 0 auto;"
+_SEPARATOR_STYLE = "border-left: 1px solid rgba(49, 51, 63, 0.20); height: 1300px; margin: 0 auto;"
 
 def _draw_vsep():
     # Large height ensures the line spans the full height of the controls area.
