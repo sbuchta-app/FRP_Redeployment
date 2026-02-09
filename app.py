@@ -937,13 +937,13 @@ def compute_roe_delta_transitions_greedy(
         # ------------------------------------------------------------
         # Structural income rates (decimal, per year):
         #   - skim applies to investor share only (p)
-        #   - servicing applies to total portfolio
+        #   - servicing applies to investor share only (p)
         #   - upfront fee is annualised over the horizon
         skim_dec = float(skim_bps) / 10000.0
         servicing_dec = float(servicing_bps) / 10000.0
         upfront_dec_ann = (float(upfront_fee_bps) / 10000.0)
 
-        struct_rate_dec = (partner_share_dec * skim_dec) + servicing_dec + upfront_dec_ann
+        struct_rate_dec = (partner_share_dec * skim_dec) + (partner_share_dec * servicing_dec) + upfront_dec_ann
         struct_rate_after_tax = struct_rate_dec * (1.0 - tx_i)
 
         # Estimate *CET1-step* donor exposure needed (so we can net structural income from the ROE profit target).
