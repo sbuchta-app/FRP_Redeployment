@@ -98,11 +98,11 @@ class Allocation:
 # Risk weights used for the transition engine
 DONOR_RISK_WEIGHT: Dict[str, float] = {
     # Updated donor risk weights per user calibration
-    'B1_SME_CORE': 0.700,
-    'B1_MIDCORP_CORE': 0.600,
+    'B1_SME_CORE': 0.900,
+    'B1_MIDCORP_CORE': 0.700,
     'B1_TRADE_FIN_CORE': 0.400,
     'B1_CRE_CORE': 0.750,
-    'B1_CONSUMER_FIN_CORE': 0.750,
+    'B1_CONSUMER_FIN_CORE': 0.800,
 }
 
 # Donor net spreads (bps) used to compute lost income on allocated donor exposure (partner slice)
