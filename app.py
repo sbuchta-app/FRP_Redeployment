@@ -99,10 +99,10 @@ class Allocation:
 DONOR_RISK_WEIGHT: Dict[str, float] = {
     # Updated donor risk weights per user calibration
     'B1_SME_CORE': 0.900,
-    'B1_MIDCORP_CORE': 0.700,
+    'B1_MIDCORP_CORE': 0.800,
     'B1_TRADE_FIN_CORE': 0.400,
-    'B1_CRE_CORE': 0.750,
-    'B1_CONSUMER_FIN_CORE': 0.800,
+    'B1_CRE_CORE': 0.800,
+    'B1_CONSUMER_FIN_CORE': 0.750,
 }
 
 # Donor net spreads (bps) used to compute lost income on allocated donor exposure (partner slice)
@@ -1746,11 +1746,11 @@ with _tc3:
     st.markdown("**Rolling fraction of donor sub-portfolios (annual origination flow)**")
     st.caption("Steady-state flow assumption: each year, this % of each donor sub-portfolio is renewed by new business. The transition engine allocates *annual* flow; partner share (p) applies to that flow.")
 
-    roll_sme = st.slider("Rolling fraction — SME core (% p.a.)", 0, 25, 15, 1, key="roll_sme")
-    roll_mid = st.slider("Rolling fraction — Mid-corp core (% p.a.)", 0, 25, 15, 1, key="roll_mid")
-    roll_tf  = st.slider("Rolling fraction — Trade finance core (% p.a.)", 0, 25, 15, 1, key="roll_tf")
-    roll_cre = st.slider("Rolling fraction — CRE core (% p.a.)", 0, 25, 15, 1, key="roll_cre")
-    roll_cons = st.slider("Rolling fraction — Consumer finance core (% p.a.)", 0, 25, 15, 1, key="roll_cons")
+    roll_sme = st.slider("Rolling fraction — SME core (% p.a.) - RW 90%", 0, 25, 15, 1, key="roll_sme")
+    roll_mid = st.slider("Rolling fraction — Mid-corp core (% p.a.) - RW 70%", 0, 25, 15, 1, key="roll_mid")
+    roll_tf  = st.slider("Rolling fraction — Trade finance core (% p.a.) - RW 40%", 0, 25, 15, 1, key="roll_tf")
+    roll_cre = st.slider("Rolling fraction — CRE core (% p.a.) - RW 80%", 0, 25, 15, 1, key="roll_cre")
+    roll_cons = st.slider("Rolling fraction — Consumer finance core (% p.a.) - RW 75%", 0, 25, 15, 1, key="roll_cons")
 
     donor_roll_pct = {
         "B1_SME_CORE": float(roll_sme),
