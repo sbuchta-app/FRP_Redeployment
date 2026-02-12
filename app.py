@@ -101,7 +101,7 @@ DONOR_RISK_WEIGHT: Dict[str, float] = {
     'B1_SME_CORE': 0.850,
     'B1_MIDCORP_CORE': 0.650,
     'B1_TRADE_FIN_CORE': 0.400,
-    'B1_CRE_CORE': 0.700,
+    'B1_CRE_CORE': 0.800,
     'B1_CONSUMER_FIN_CORE': 0.750,
 }
 
